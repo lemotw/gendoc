@@ -1,4 +1,4 @@
-package docgen
+package gendoc
 
 import "github.com/lemotw/gendoc/model"
 
