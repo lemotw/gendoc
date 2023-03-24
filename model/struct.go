@@ -45,6 +45,7 @@ type StructTable []*StructField
 
 type StructDef struct {
 	Name   string
+	Prefix string
 	Fields StructTable
 }
 
@@ -52,7 +53,11 @@ func (def *StructDef) GetNodes() []*html.Node {
 	// Structure Name
 	h2 := &html.Node{Type: html.ElementNode, Data: "h2"}
 	strong := &html.Node{Type: html.ElementNode, Data: "strong"}
-	strong.AppendChild(&html.Node{Type: html.TextNode, Data: def.Name})
+	prefix := ""
+	if len(def.Prefix) > 0 {
+		prefix = "[" + def.Prefix + "]"
+	}
+	strong.AppendChild(&html.Node{Type: html.TextNode, Data: prefix + def.Name})
 	h2.AppendChild(strong)
 
 	// table

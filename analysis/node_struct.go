@@ -28,6 +28,7 @@ func ParseDoc(doc string) (*model.Doc, error) {
 			if prevKey != nil {
 				// append doc
 				ret.AppendRow(prevKey, model.NewNodeRenderable(contentBuf))
+				contentBuf = []*html.Node{}
 			}
 
 			prevKey = model.NewNodeRenderable([]*html.Node{n})

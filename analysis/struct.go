@@ -3,12 +3,13 @@ package analysis
 import (
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/lemotw/gendoc/model"
 	"golang.org/x/net/html"
 )
 
-func ReflectStruct(intf interface{}, descMap map[string]map[string]string) (*model.StructDef, []*model.StructDef) {
+func ReflectStruct(intf interface{}, descMap map[string]map[string]string, prefix string) (*model.StructDef, []*model.StructDef) {
 	structDefs := make(map[reflect.Type]*model.StructDef)
 
 	t := reflect.TypeOf(intf)
@@ -18,6 +19,7 @@ func ReflectStruct(intf interface{}, descMap map[string]map[string]string) (*mod
 
 	sd := &model.StructDef{
 		Name:   t.Name(),
+		Prefix: prefix,
 		Fields: make([]*model.StructField, 0),
 	}
 
@@ -51,8 +53,8 @@ func ReflectStruct(intf interface{}, descMap map[string]map[string]string) (*mod
 			fType = fType.Elem()
 			goto writeTypeName
 		case reflect.Struct:
-			if _, ok := structDefs[fType]; !ok {
-				subSd, subStructDefs := ReflectStruct(reflect.New(fType).Elem().Interface(), descMap)
+			if _, ok := structDefs[fType]; !ok && fType != reflect.TypeOf(time.Time{}) {
+				subSd, subStructDefs := ReflectStruct(reflect.New(fType).Elem().Interface(), descMap, "")
 				if subSd == nil {
 					return nil, nil
 				}

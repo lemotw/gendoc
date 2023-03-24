@@ -33,6 +33,14 @@ func NewTitleRenderable(title string) *NodeRenderable {
 	return NewNodeRenderable([]*html.Node{node})
 }
 
+func NewParamRenderable(sd *StructDef, relate []*StructDef) *NodeRenderable {
+	ret := NewNodeRenderable(sd.GetNodes())
+	for i := 0; i < len(relate); i++ {
+		ret.Append(relate[i].GetNodes())
+	}
+	return ret
+}
+
 func (n *NodeRenderable) Rerender() {
 	contentBuilder := strings.Builder{}
 

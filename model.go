@@ -2,6 +2,12 @@ package gendoc
 
 import "github.com/lemotw/gendoc/model"
 
+const (
+	INTRODUTION_HEADER = "Introduction"
+	REQUEST_HEADER     = "Request"
+	RESPONSE_HEADER    = "Response"
+)
+
 type ConflunceSetting struct {
 	Auth     model.ConflunceAccount
 	Domain   string
@@ -14,6 +20,10 @@ type ApiInfo struct {
 	Intro     string
 }
 
+func (info *ApiInfo) GetTitle() string {
+	return "[" + info.Intro + "] " + info.ApiMethod + ": " + info.ApiURL
+}
+
 type Param struct {
 	Data       interface{}
 	JsonRender bool
@@ -21,6 +31,7 @@ type Param struct {
 
 type APIRegistry struct {
 	ID       string
+	Version  int
 	ParentId string
 	Info     *ApiInfo
 	Req      *Param

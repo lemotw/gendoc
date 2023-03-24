@@ -23,23 +23,32 @@ type Storage struct {
 	Representation string `json:"representation"`
 }
 
+type Version struct {
+	Number int `json:"number"`
+}
+
 type Page struct {
 	Title     string     `json:"title"`
+	Version   Version    `json:"version"`
 	Type      *string    `json:"type"`
 	Ancestors []Ancestor `json:"ancestors"`
 	Space     Space      `json:"space"`
 	Body      Body       `json:"body"`
 }
 
-func NewPage(doc *Doc, parentId, spaceKey string) *Page {
+func NewPage(doc *Doc, parentId, title, spaceKey string) *Page {
 	t := "page"
 	return &Page{
-		Type: &t,
+		Title: title,
+		Type:  &t,
 		Body: Body{
 			Storage: Storage{
 				Value:          doc.Render(),
 				Representation: "storage",
 			},
+		},
+		Version: Version{
+			Number: 0,
 		},
 		Space: Space{
 			Key: spaceKey,
@@ -104,8 +113,9 @@ type ChildPageResponse struct {
 }
 
 type ChildPage struct {
-	ID     string `json:"id"`
-	Type   string `json:"type"`
-	Title  string `json:"title"`
-	Status string `json:"status"`
+	ID      string  `json:"id"`
+	Type    string  `json:"type"`
+	Version Version `json:"version"`
+	Title   string  `json:"title"`
+	Status  string  `json:"status"`
 }

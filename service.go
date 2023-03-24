@@ -1,7 +1,6 @@
 package gendoc
 
 import (
-	"log"
 	"regexp"
 
 	"github.com/lemotw/gendoc/analysis"
@@ -11,6 +10,8 @@ import (
 )
 
 type IDocService interface {
+	NewGroup(pageId string) *APIGroup
+
 	RegisterAPI(pageId string, apiInfo *ApiInfo, req *Param, res *Param)
 
 	GenDoc() error
@@ -37,6 +38,13 @@ type docService struct {
 	descriptionMap map[string]map[string]string
 }
 
+func (serv *docService) NewGroup(pageId string) *APIGroup {
+	return &APIGroup{
+		ParentId: pageId,
+		serv:     serv,
+	}
+}
+
 func (serv *docService) RegisterAPI(pageId string, apiInfo *ApiInfo, req *Param, res *Param) {
 	registry := &APIRegistry{
 		ParentId: pageId,
@@ -54,7 +62,7 @@ func (serv *docService) RegisterAPI(pageId string, apiInfo *ApiInfo, req *Param,
 
 func (serv *docService) GenDoc() error {
 	for pageId, apis := range serv.Registry {
-		alreadyExistApiPage := make(map[string]*APIRegistry) // api key -> api registry
+		alreadyExistApiPage := make(map[string]*APIRegistry)
 
 		walkFunc := func(child *model.ChildPage) bool {
 			regex := regexp.MustCompile("(\\[(.*)\\])\\ *((?i:GET|POST|PUT|DEL)):\\ *(\\/.*)")
@@ -65,7 +73,8 @@ func (serv *docService) GenDoc() error {
 
 			if len(titleInfo) == 5 {
 				alreadyExistApiPage[titleInfo[3]+":"+titleInfo[4]] = &APIRegistry{
-					ID: child.ID,
+					ID:      child.ID,
+					Version: child.Version.Number,
 					Info: &ApiInfo{
 						ApiURL:    titleInfo[4],
 						ApiMethod: titleInfo[3],
@@ -77,6 +86,7 @@ func (serv *docService) GenDoc() error {
 			return false
 		}
 
+		// make exist page map
 		if err := conflunce.WalkAllChildPage(serv.ConflunceSetting.Domain, pageId, walkFunc, &serv.ConflunceSetting.Auth); err != nil {
 			return err
 		}
@@ -96,17 +106,50 @@ func (serv *docService) GenDoc() error {
 				if err != nil {
 					return err
 				}
-				log.Println(doc)
 
 				// 3. update the api (req and res)
-				keyS := []string{}
+				var reqKey model.Renderable
+				var resKey model.Renderable
 				for i := 0; i < len(doc.KeySequence); i++ {
-					keyS = append(keyS, doc.KeySequence[i].Text())
+					// find key
+					if doc.KeySequence[i].Text() == REQUEST_HEADER {
+						reqKey = doc.KeySequence[i]
+					}
+
+					if doc.KeySequence[i].Text() == RESPONSE_HEADER {
+						resKey = doc.KeySequence[i]
+					}
 				}
-				log.Println(keyS)
+
+				// req set
+				if reqKey == nil {
+					doc.Append(model.NewTitleRenderable(REQUEST_HEADER), model.NewParamRenderable(analysis.ReflectStruct(api.Req.Data, serv.descriptionMap, "req")))
+				} else {
+					doc.Contents[reqKey] = []model.Renderable{model.NewParamRenderable(analysis.ReflectStruct(api.Req.Data, serv.descriptionMap, "req"))}
+					if api.Req.JsonRender {
+						doc.Contents[reqKey] = append(doc.Contents[reqKey], model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
+						doc.Contents[reqKey] = append(doc.Contents[reqKey], &model.JsonContent{Data: api.Req.Data})
+					}
+				}
+
+				// res set
+				if resKey == nil {
+					doc.Append(model.NewTitleRenderable(RESPONSE_HEADER), model.NewParamRenderable(analysis.ReflectStruct(api.Res.Data, serv.descriptionMap, "res")))
+				} else {
+					doc.Contents[resKey] = []model.Renderable{model.NewParamRenderable(analysis.ReflectStruct(api.Res.Data, serv.descriptionMap, "res"))}
+					if api.Req.JsonRender {
+						doc.Contents[resKey] = append(doc.Contents[resKey], model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
+						doc.Contents[resKey] = append(doc.Contents[resKey], &model.JsonContent{Data: api.Res.Data})
+					}
+				}
 
 				// 4. update the page
-
+				page := model.NewPage(doc, pageId, api.Info.GetTitle(), serv.ConflunceSetting.SpaceKey)
+				page.Version.Number = existPage.Version + 1
+				err = conflunce.PutConfluncePage(serv.ConflunceSetting.Domain, existPage.ID, page, &serv.ConflunceSetting.Auth)
+				if err != nil {
+					return err
+				}
 			} else {
 				// create doc
 				doc := &model.Doc{}
@@ -117,42 +160,30 @@ func (serv *docService) GenDoc() error {
 					Data: "p",
 				}})
 				introdution.Append([]*html.Node{{Type: html.TextNode, Data: api.Info.Intro}})
-				doc.AppendRow(model.NewTitleRenderable("Introduction"), introdution)
-
-				// 1. create the api (req and res)
+				doc.AppendRow(model.NewTitleRenderable(INTRODUTION_HEADER), introdution)
 
 				// set req
-				reqContentStruct, reqRelateStruct := analysis.ReflectStruct(api.Req.Data, serv.descriptionMap)
-				reqContent := model.NewNodeRenderable(reqContentStruct.GetNodes())
-				for i := 0; i < len(reqRelateStruct); i++ {
-					reqContent.Append(reqRelateStruct[i].GetNodes())
-				}
+				reqKey := model.NewTitleRenderable(REQUEST_HEADER)
 
-				reqKey := model.NewTitleRenderable("Request")
-				doc.Append(reqKey, reqContent)
+				req := model.NewParamRenderable(analysis.ReflectStruct(api.Req.Data, serv.descriptionMap, "req"))
+				doc.Append(reqKey, req)
 				if api.Req.JsonRender {
 					doc.Append(reqKey, model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
 					doc.Append(reqKey, &model.JsonContent{Data: api.Req.Data})
 				}
 
 				// set res
-				resContentStruct, resRelateStruct := analysis.ReflectStruct(api.Res.Data, serv.descriptionMap)
-				resContent := model.NewNodeRenderable(resContentStruct.GetNodes())
-				for i := 0; i < len(resRelateStruct); i++ {
-					resContent.Append(resRelateStruct[i].GetNodes())
-				}
+				resKey := model.NewTitleRenderable(RESPONSE_HEADER)
 
-				resKey := model.NewTitleRenderable("Response")
-				doc.Append(resKey, resContent)
+				res := model.NewParamRenderable(analysis.ReflectStruct(api.Res.Data, serv.descriptionMap, "res"))
+				doc.Append(resKey, res)
 				if api.Res.JsonRender {
 					doc.Append(resKey, model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
 					doc.Append(resKey, &model.JsonContent{Data: api.Res.Data})
 				}
 
 				// 2. create the page
-				//model.Page{}
-				page := model.NewPage(doc, pageId, serv.ConflunceSetting.SpaceKey)
-				page.Title = "[" + api.Info.Intro + "] " + api.Info.ApiMethod + ": " + api.Info.ApiURL
+				page := model.NewPage(doc, pageId, api.Info.GetTitle(), serv.ConflunceSetting.SpaceKey)
 				err := conflunce.NewConfluncePage(serv.ConflunceSetting.Domain, page, &serv.ConflunceSetting.Auth)
 				if err != nil {
 					return err

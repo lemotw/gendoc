@@ -34,7 +34,7 @@ func FetchConfluncePage(url, pageid string, auth *model.ConflunceAccount) (*mode
 		domain = url + "/"
 	}
 
-	res, err := doConflunceAPI(http.MethodGet, domain+"rest/api/content/"+pageid+"?expand=body.storage", nil, auth)
+	res, err := doConflunceAPI(http.MethodGet, domain+"rest/api/content/"+pageid+"?expand=body.storage,version", nil, auth)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +131,7 @@ func FetchConflunceChildPage(url, pageid string, auth *model.ConflunceAccount) (
 		domain = url + "/"
 	}
 
-	res, err := doConflunceAPI(http.MethodGet, domain+"rest/api/content/"+pageid+"/child/page", nil, auth)
+	res, err := doConflunceAPI(http.MethodGet, domain+"rest/api/content/"+pageid+"/child/page?expand=version", nil, auth)
 	if err != nil {
 		return nil, err
 	}

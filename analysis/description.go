@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
@@ -85,8 +86,12 @@ func GetDescriptionMap() (map[string]map[string]string, error) {
 				if strings.HasPrefix(file.Comments[i].List[j].Text, "// @") {
 					descStr := file.Comments[i].List[j].Text[4:]
 					descArr := strings.Split(descStr, ":")
-					if len(descArr) == 2 {
-						pkgDescMap[descArr[0]] = strings.Replace(descArr[1], "\"", "", -1)
+					if len(descArr) >= 2 {
+						val, err := strconv.Unquote(strings.TrimSpace(strings.Join(descArr[1:], "")))
+						if err != nil {
+							return nil
+						}
+						pkgDescMap[descArr[0]] = val
 					}
 				}
 			}
