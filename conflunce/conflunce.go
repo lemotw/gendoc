@@ -161,23 +161,3 @@ func FetchConflunceChildPage(url, pageid string, auth *model.ConflunceAccount) (
 
 	return nil, errors.New("response body: " + string(body) + ", status code: " + res.Status)
 }
-
-func WalkAllChildPage(url, pageid string, fn func(c *model.ChildPage) bool, auth *model.ConflunceAccount) error {
-	pageStack := []string{pageid}
-
-	for len(pageStack) > 0 {
-		pid := pageStack[len(pageStack)-1]
-		pageStack = pageStack[:len(pageStack)-1]
-
-		childPage, err := FetchConflunceChildPage(url, pid, auth)
-		if err != nil {
-			return err
-		}
-
-		for i := 0; i < len(childPage.Results); i++ {
-			fn(&childPage.Results[i])
-		}
-	}
-
-	return nil
-}

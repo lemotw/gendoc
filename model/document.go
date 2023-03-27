@@ -29,6 +29,10 @@ func (doc *Doc) AppendRow(key Renderable, content Renderable) {
 }
 
 func (doc *Doc) Append(key Renderable, content Renderable) {
+	if content == nil {
+		return
+	}
+
 	if _, ok := doc.Contents[key]; ok {
 		doc.Contents[key] = append(doc.Contents[key], content)
 	} else {

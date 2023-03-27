@@ -1,16 +1,26 @@
 package analysis
 
-import "golang.org/x/net/html"
+import (
+	"golang.org/x/net/html"
+)
 
-func SearchNodes(node *html.Node, nodeType html.NodeType) []*html.Node {
+func SearchNodes(node *html.Node, nodeType html.NodeType, target string) []*html.Node {
 	res := []*html.Node{}
-	stack := []*html.Node{node}
+	stack := []*html.Node{}
+	for child := node.FirstChild; child != nil; child = child.NextSibling {
+		stack = append(stack, child)
+	}
+
 	for len(stack) > 0 {
 		node = stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 
 		if node.Type == nodeType {
-			res = append(res, node)
+			if target == "" {
+				res = append(res, node)
+			} else if node.Data == target {
+				res = append(res, node)
+			}
 		}
 
 		for child := node.FirstChild; child != nil; child = child.NextSibling {
@@ -21,12 +31,17 @@ func SearchNodes(node *html.Node, nodeType html.NodeType) []*html.Node {
 	return res
 }
 
-func FindNode(node *html.Node, target string) *html.Node {
-	stack := []*html.Node{node}
+func FindNode(root *html.Node, target string) *html.Node {
+	stack := []*html.Node{root}
 
+	var node *html.Node
 	for len(stack) > 0 {
 		node = stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
+
+		if node == nil {
+			continue
+		}
 
 		if node.Type == html.ElementNode && node.Data == target {
 			return node

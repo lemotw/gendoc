@@ -15,6 +15,10 @@ type NodeRenderable struct {
 	contentFlag bool
 }
 
+func (n *NodeRenderable) GetNodes() []*html.Node {
+	return n.nodes
+}
+
 func NewNodeRenderable(node []*html.Node) *NodeRenderable {
 	return &NodeRenderable{
 		nodes:       node,
@@ -34,6 +38,10 @@ func NewTitleRenderable(title string) *NodeRenderable {
 }
 
 func NewParamRenderable(sd *StructDef, relate []*StructDef) *NodeRenderable {
+	if sd == nil {
+		return nil
+	}
+
 	ret := NewNodeRenderable(sd.GetNodes())
 	for i := 0; i < len(relate); i++ {
 		ret.Append(relate[i].GetNodes())

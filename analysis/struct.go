@@ -9,11 +9,34 @@ import (
 	"golang.org/x/net/html"
 )
 
-func ReflectStruct(intf interface{}, descMap map[string]map[string]string, prefix string) (*model.StructDef, []*model.StructDef) {
+func ReflectAny(intf interface{}, descMap map[string]map[string]string, prefix string) (*model.StructDef, []*model.StructDef) {
+	t := reflect.TypeOf(intf)
+	namePrefix := ""
+
+unwrap:
+	switch t.Kind() {
+	case reflect.Slice:
+		namePrefix += "[]"
+		t = t.Elem()
+		goto unwrap
+	case reflect.Ptr:
+		namePrefix += "*"
+		t = t.Elem()
+		goto unwrap
+	}
+
+	structDef, relateStruct := ReflectStruct(t, descMap, prefix)
+	if structDef != nil {
+		structDef.Name = namePrefix + structDef.Name
+	}
+
+	return structDef, relateStruct
+}
+
+func ReflectStruct(t reflect.Type, descMap map[string]map[string]string, prefix string) (*model.StructDef, []*model.StructDef) {
 	structDefs := make(map[reflect.Type]*model.StructDef)
 
-	t := reflect.TypeOf(intf)
-	if t.Kind() != reflect.Struct {
+	if t.Kind() != reflect.Struct || t.Kind() == reflect.Ptr {
 		return nil, nil
 	}
 
@@ -54,7 +77,7 @@ func ReflectStruct(intf interface{}, descMap map[string]map[string]string, prefi
 			goto writeTypeName
 		case reflect.Struct:
 			if _, ok := structDefs[fType]; !ok && fType != reflect.TypeOf(time.Time{}) {
-				subSd, subStructDefs := ReflectStruct(reflect.New(fType).Elem().Interface(), descMap, "")
+				subSd, subStructDefs := ReflectAny(reflect.New(fType).Elem().Interface(), descMap, "")
 				if subSd == nil {
 					return nil, nil
 				}
@@ -92,35 +115,34 @@ func ReflectStruct(intf interface{}, descMap map[string]map[string]string, prefi
 func NodeToFieldList(node *html.Node) model.StructTable {
 	var list []*model.StructField
 
-	theadNode := FindNode(node, "thead")
-	for n := theadNode.FirstChild; n != nil; n = n.NextSibling {
-		var tdList []*html.Node
-		trNode := FindNode(n, "tr")
-		for td := trNode.FirstChild; td != nil; td = td.NextSibling {
-			tdList = append(tdList, td)
-		}
+	trlist := SearchNodes(node, html.ElementNode, "tr")
+	if len(trlist) == 0 {
+		return nil
+	}
 
+	for i := 0; i < len(trlist); i++ {
+		tdList := SearchNodes(trlist[i], html.ElementNode, "td")
 		if len(tdList) == 4 {
 			f := &model.StructField{}
 
-			nameTNodes := SearchNodes(tdList[0], html.TextNode)
+			nameTNodes := SearchNodes(tdList[3], html.TextNode, "")
 			for i := 0; i < len(nameTNodes); i++ {
 				f.Name += nameTNodes[i].Data
 			}
 
-			typeTNodes := SearchNodes(tdList[1], html.TextNode)
+			typeTNodes := SearchNodes(tdList[2], html.TextNode, "")
 			for i := 0; i < len(typeTNodes); i++ {
 				f.Type += typeTNodes[i].Data
 			}
 
 			reqStr := ""
-			reqTNodes := SearchNodes(tdList[2], html.TextNode)
+			reqTNodes := SearchNodes(tdList[1], html.TextNode, "")
 			for i := 0; i < len(reqTNodes); i++ {
 				reqStr += reqTNodes[i].Data
 			}
 			f.Req = reqStr == "Y"
 
-			decTNodes := SearchNodes(tdList[3], html.TextNode)
+			decTNodes := SearchNodes(tdList[0], html.TextNode, "")
 			for i := 0; i < len(decTNodes); i++ {
 				f.Desc += decTNodes[i].Data
 			}
