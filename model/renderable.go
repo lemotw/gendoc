@@ -37,14 +37,22 @@ func NewTitleRenderable(title string) *NodeRenderable {
 	return NewNodeRenderable([]*html.Node{node})
 }
 
-func NewParamRenderable(sd *StructDef, relate []*StructDef) *NodeRenderable {
+func NewParamRenderable(sd *StructDef, relate []*StructDef, colorset *ColorSet) *NodeRenderable {
 	if sd == nil {
 		return nil
 	}
 
-	ret := NewNodeRenderable(sd.GetNodes())
+	for _, s := range relate {
+		if s == nil {
+			continue
+		}
+		// spec color to relate struct
+		colorset.Get(s.Name)
+	}
+
+	ret := NewNodeRenderable(sd.GetNodes(colorset))
 	for i := 0; i < len(relate); i++ {
-		ret.Append(relate[i].GetNodes())
+		ret.Append(relate[i].GetNodes(colorset))
 	}
 	return ret
 }

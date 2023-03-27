@@ -96,20 +96,23 @@ func (serv *docService) createPage(parentID string, api *APIRegistry) error {
 	introdution.Append([]*html.Node{{Type: html.TextNode, Data: api.Info.Intro}})
 	doc.AppendRow(model.NewTitleRenderable(INTRODUTION_HEADER), introdution)
 
-	// set req
-	reqKey := model.NewTitleRenderable(REQUEST_HEADER)
+	// color set
+	reqStruct, reqReleate := analysis.ReflectAny(api.Req.Data, serv.descriptionMap, "req")
+	resStruct, resReleate := analysis.ReflectAny(api.Res.Data, serv.descriptionMap, "res")
+	colorset := model.NewColorSet(len(reqReleate) + len(resReleate))
 
-	req := model.NewParamRenderable(analysis.ReflectAny(api.Req.Data, serv.descriptionMap, "req"))
+	// set req doc
+	reqKey := model.NewTitleRenderable(REQUEST_HEADER)
+	req := model.NewParamRenderable(reqStruct, reqReleate, colorset)
 	doc.Append(reqKey, req)
 	if api.Req.JsonRender {
 		doc.Append(reqKey, model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
 		doc.Append(reqKey, &model.JsonContent{Data: api.Req.Data})
 	}
 
-	// set res
+	// set res doc
 	resKey := model.NewTitleRenderable(RESPONSE_HEADER)
-
-	res := model.NewParamRenderable(analysis.ReflectAny(api.Res.Data, serv.descriptionMap, "res"))
+	res := model.NewParamRenderable(resStruct, resReleate, colorset)
 	doc.Append(resKey, res)
 	if api.Res.JsonRender {
 		doc.Append(resKey, model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
@@ -154,11 +157,16 @@ func (serv *docService) updatePage(parentID string, existPage, api *APIRegistry)
 		}
 	}
 
+	// color set
+	reqStruct, reqReleate := analysis.ReflectAny(api.Req.Data, serv.descriptionMap, "req")
+	resStruct, resReleate := analysis.ReflectAny(api.Res.Data, serv.descriptionMap, "res")
+	colorset := model.NewColorSet(len(reqReleate) + len(resReleate))
+
 	// req set
 	if reqKey == nil {
-		doc.Append(model.NewTitleRenderable(REQUEST_HEADER), model.NewParamRenderable(analysis.ReflectAny(api.Req.Data, serv.descriptionMap, "req")))
+		doc.Append(model.NewTitleRenderable(REQUEST_HEADER), model.NewParamRenderable(reqStruct, reqReleate, colorset))
 	} else {
-		doc.Contents[reqKey] = []model.Renderable{model.NewParamRenderable(analysis.ReflectAny(api.Req.Data, serv.descriptionMap, "req"))}
+		doc.Contents[reqKey] = []model.Renderable{model.NewParamRenderable(reqStruct, reqReleate, colorset)}
 		if api.Req.JsonRender {
 			doc.Contents[reqKey] = append(doc.Contents[reqKey], model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
 			doc.Contents[reqKey] = append(doc.Contents[reqKey], &model.JsonContent{Data: api.Req.Data})
@@ -167,9 +175,9 @@ func (serv *docService) updatePage(parentID string, existPage, api *APIRegistry)
 
 	// res set
 	if resKey == nil {
-		doc.Append(model.NewTitleRenderable(RESPONSE_HEADER), model.NewParamRenderable(analysis.ReflectAny(api.Res.Data, serv.descriptionMap, "res")))
+		doc.Append(model.NewTitleRenderable(RESPONSE_HEADER), model.NewParamRenderable(resStruct, resReleate, colorset))
 	} else {
-		doc.Contents[resKey] = []model.Renderable{model.NewParamRenderable(analysis.ReflectAny(api.Res.Data, serv.descriptionMap, "res"))}
+		doc.Contents[resKey] = []model.Renderable{model.NewParamRenderable(resStruct, resReleate, colorset)}
 		if api.Req.JsonRender {
 			doc.Contents[resKey] = append(doc.Contents[resKey], model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
 			doc.Contents[resKey] = append(doc.Contents[resKey], &model.JsonContent{Data: api.Res.Data})
@@ -201,10 +209,10 @@ func (serv *docService) GenDoc() error {
 				if err := serv.updatePage(pageId, existPage, api); err != nil {
 					return err
 				}
-			}
-
-			if err := serv.createPage(pageId, api); err != nil {
-				return err
+			} else {
+				if err := serv.createPage(pageId, api); err != nil {
+					return err
+				}
 			}
 		}
 	}

@@ -1,6 +1,8 @@
 package model
 
 import (
+	"strings"
+
 	"golang.org/x/net/html"
 )
 
@@ -11,7 +13,7 @@ type StructField struct {
 	Desc string
 }
 
-func (field *StructField) GetNode() *html.Node {
+func (field *StructField) GetNode(colorset *ColorSet) *html.Node {
 	trNode := &html.Node{Type: html.ElementNode, Data: "tr"}
 
 	// name
@@ -20,7 +22,16 @@ func (field *StructField) GetNode() *html.Node {
 	trNode.AppendChild(td1Node)
 
 	// type
-	td2Node := &html.Node{Type: html.ElementNode, Data: "td"}
+	colorAttr := []html.Attribute{}
+	rawType := field.Type
+	rawType = strings.Replace(rawType, "*", "", -1)
+	rawType = strings.Replace(rawType, "[]", "", -1)
+	typeColor := colorset.TryGet(rawType)
+	if typeColor != nil {
+		colorAttr = append(colorAttr, html.Attribute{Key: "style", Val: "color:" + typeColor.Hex()})
+	}
+
+	td2Node := &html.Node{Type: html.ElementNode, Data: "td", Attr: colorAttr}
 	td2Node.AppendChild(&html.Node{Type: html.TextNode, Data: field.Type})
 	trNode.AppendChild(td2Node)
 
@@ -49,15 +60,28 @@ type StructDef struct {
 	Fields StructTable
 }
 
-func (def *StructDef) GetNodes() []*html.Node {
-	// Structure Name
-	h2 := &html.Node{Type: html.ElementNode, Data: "h2"}
-	strong := &html.Node{Type: html.ElementNode, Data: "strong"}
-	prefix := ""
+func (def *StructDef) HeaderStr() string {
 	if len(def.Prefix) > 0 {
-		prefix = "[" + def.Prefix + "]"
+		return "[" + def.Prefix + "]" + def.Name
 	}
-	strong.AppendChild(&html.Node{Type: html.TextNode, Data: prefix + def.Name})
+
+	return def.Name
+}
+
+func (def *StructDef) GetNodes(colorset *ColorSet) []*html.Node {
+	// color
+	sColorAttr := []html.Attribute{}
+	if len(def.Prefix) == 0 {
+		sColor := colorset.Get(def.Name)
+		if sColor != nil {
+			sColorAttr = append(sColorAttr, html.Attribute{Key: "style", Val: "color:" + sColor.Hex()})
+		}
+	}
+
+	// struct header
+	h2 := &html.Node{Type: html.ElementNode, Data: "h2", Attr: sColorAttr}
+	strong := &html.Node{Type: html.ElementNode, Data: "strong"}
+	strong.AppendChild(&html.Node{Type: html.TextNode, Data: def.HeaderStr()})
 	h2.AppendChild(strong)
 
 	// table
@@ -87,7 +111,7 @@ func (def *StructDef) GetNodes() []*html.Node {
 	tableNode.AppendChild(theadNode)
 
 	for _, field := range def.Fields {
-		tableNode.AppendChild(field.GetNode())
+		tableNode.AppendChild(field.GetNode(colorset))
 	}
 
 	return []*html.Node{h2, tableNode}
