@@ -33,6 +33,37 @@ unwrap:
 	return structDef, relateStruct
 }
 
+func getFileds(start reflect.Type) []*reflect.StructField {
+	stack := []*reflect.StructField{}
+	ret := []*reflect.StructField{}
+
+	for i:=0; i<start.NumField(); i++ {
+		field := start.Field(i)
+		stack = append(stack, &field)
+	}
+
+	for len(stack) > 0 {
+		if stack[len(stack)-1] == nil {
+			continue
+		}
+		field := *stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		if field.Tag.Get("json") != "" {
+			ret = append(ret, &field)
+		}
+
+		if field.Tag.Get("inheritance") == "true" {
+			for j := 0; j < field.Type.NumField(); j++ {
+				fieldj := field.Type.Field(j)
+				stack = append(stack, &fieldj)
+			}
+		}
+	}
+
+	return ret
+}
+
 func ReflectStruct(t reflect.Type, descMap map[string]map[string]string, prefix string) (*model.StructDef, []*model.StructDef) {
 	structDefs := make(map[reflect.Type]*model.StructDef)
 
@@ -46,23 +77,20 @@ func ReflectStruct(t reflect.Type, descMap map[string]map[string]string, prefix 
 		Fields: make([]*model.StructField, 0),
 	}
 
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		jsonTag := field.Tag.Get("json")
-		if jsonTag == "" {
-			continue
-		}
+	fieldList := getFileds(t)
+	for i := 0; i < len(fieldList); i++ {
+		field := fieldList[i]
+
 		// get desc
-		desc := ""
-		pkgDescMap, ok := descMap[t.PkgPath()]
+		stf := &model.StructField{Name: field.Tag.Get("json"), Req: true}
+		pkgDescMap, ok := descMap[field.Type.PkgPath()]
 		if ok {
 			ttName := t.Name() + "." + field.Name
 			if descStr, ok := pkgDescMap[ttName]; ok {
-				desc = descStr
+				stf.Desc = descStr
 			}
 		}
 
-		stf := &model.StructField{Name: jsonTag, Req: true, Desc: desc}
 		fType := field.Type
 
 	writeTypeName:
