@@ -13,8 +13,8 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
-func GetDescriptionMap() (map[string]map[string]string, error) {
-	descriptionMap := make(map[string]map[string]string)
+func GetDescriptionMap() (map[string]map[string][]string, error) {
+	descriptionMap := make(map[string]map[string][]string)
 
 	// get package root
 	currentDir, err := os.Getwd()
@@ -76,7 +76,7 @@ func GetDescriptionMap() (map[string]map[string]string, error) {
 
 		pkgDescMap, ok := descriptionMap[pkgName]
 		if !ok {
-			pkgDescMap = make(map[string]string)
+			pkgDescMap = make(map[string][]string)
 			descriptionMap[pkgName] = pkgDescMap
 		}
 
@@ -87,11 +87,11 @@ func GetDescriptionMap() (map[string]map[string]string, error) {
 					descStr := file.Comments[i].List[j].Text[4:]
 					descArr := strings.Split(descStr, ":")
 					if len(descArr) >= 2 {
-						val, err := strconv.Unquote(strings.TrimSpace(strings.Join(descArr[1:], "")))
+						val, err := strconv.Unquote(strings.TrimSpace(strings.Join(descArr[1:], ":")))
 						if err != nil {
 							return nil
 						}
-						pkgDescMap[descArr[0]] = val
+						pkgDescMap[descArr[0]] = append(pkgDescMap[descArr[0]], val)
 					}
 				}
 			}

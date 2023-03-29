@@ -10,7 +10,7 @@ type StructField struct {
 	Name string
 	Type string
 	Req  bool
-	Desc string
+	Desc []string
 }
 
 func (field *StructField) GetNode(colorset *ColorSet) *html.Node {
@@ -46,7 +46,11 @@ func (field *StructField) GetNode(colorset *ColorSet) *html.Node {
 
 	// desc
 	td4Node := &html.Node{Type: html.ElementNode, Data: "td"}
-	td4Node.AppendChild(&html.Node{Type: html.TextNode, Data: field.Desc})
+	for i := 0; i < len(field.Desc); i++ {
+		pNode := html.Node{Type: html.ElementNode, Data: "p"}
+		pNode.AppendChild(&html.Node{Type: html.TextNode, Data: field.Desc[i]})
+		td4Node.AppendChild(&pNode)
+	}
 	trNode.AppendChild(td4Node)
 
 	return trNode

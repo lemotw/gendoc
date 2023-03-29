@@ -9,7 +9,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-func ReflectAny(intf interface{}, descMap map[string]map[string]string, prefix string) (*model.StructDef, []*model.StructDef) {
+func ReflectAny(intf interface{}, descMap map[string]map[string][]string) []*model.StructDef {
 	t := reflect.TypeOf(intf)
 	namePrefix := ""
 
@@ -25,25 +25,25 @@ unwrap:
 		goto unwrap
 	}
 
-	structDef, relateStruct := ReflectStruct(t, descMap, prefix)
-	if structDef != nil {
-		structDef.Name = namePrefix + structDef.Name
+	structDef := ReflectStructDFS(t, descMap)
+	if len(structDef) > 0 {
+		structDef[0].Name = namePrefix + structDef[0].Name
 	}
 
-	return structDef, relateStruct
+	return structDef
 }
 
 type WrapStructField struct {
 	// for desc
 	PName string
-	Field  reflect.StructField
+	Field reflect.StructField
 }
 
 func getFileds(start reflect.Type) []*WrapStructField {
 	stack := []*WrapStructField{}
 	ret := []*WrapStructField{}
 
-	for i:=0; i<start.NumField(); i++ {
+	for i := 0; i < start.NumField(); i++ {
 		field := start.Field(i)
 		stack = append(stack, &WrapStructField{
 			PName: start.Name(),
@@ -81,84 +81,76 @@ func getFileds(start reflect.Type) []*WrapStructField {
 	return ret
 }
 
-func ReflectStruct(t reflect.Type, descMap map[string]map[string]string, prefix string) (*model.StructDef, []*model.StructDef) {
-	structDefs := make(map[reflect.Type]*model.StructDef)
+func ReflectStructDFS(t reflect.Type, descMap map[string]map[string][]string) []*model.StructDef {
+	ret := []*model.StructDef{}
+	typeStack := []reflect.Type{t}
+	analysisedStruct := map[reflect.Type]struct{}{}
 
-	if t.Kind() != reflect.Struct || t.Kind() == reflect.Ptr {
-		return nil, nil
-	}
+	for len(typeStack) > 0 {
+		tp := typeStack[len(typeStack)-1]
+		typeStack = typeStack[:len(typeStack)-1]
 
-	sd := &model.StructDef{
-		Name:   t.Name(),
-		Prefix: prefix,
-		Fields: make([]*model.StructField, 0),
-	}
-
-	fieldList := getFileds(t)
-	for i := 0; i < len(fieldList); i++ {
-		field := fieldList[i].Field
-
-		// get desc
-		stf := &model.StructField{ Req: true}
-
-		jsonArr := strings.Split(field.Tag.Get("json"), ",")
-		if len(jsonArr) > 0 {
-			stf.Name = jsonArr[0]
+		fieldList := getFileds(tp)
+		structDefind := &model.StructDef{
+			Name:   tp.Name(),
+			Fields: make([]*model.StructField, 0),
 		}
-		fType := field.Type
 
-	writeTypeName:
-		switch fType.Kind() {
-		case reflect.Ptr:
-			stf.Type += "*"
-			fType = fType.Elem()
-			goto writeTypeName
-		case reflect.Slice:
-			stf.Type += "[]"
-			fType = fType.Elem()
-			goto writeTypeName
-		case reflect.Struct:
-			if _, ok := structDefs[fType]; !ok && fType != reflect.TypeOf(time.Time{}) {
-				subSd, subStructDefs := ReflectAny(reflect.New(fType).Elem().Interface(), descMap, "")
-				if subSd == nil {
-					return nil, nil
-				}
-				structDefs[fType] = subSd
-				for _, subStructDef := range subStructDefs {
-					if _, ok := structDefs[reflect.TypeOf(subStructDef)]; !ok {
-						structDefs[reflect.TypeOf(subStructDef)] = subStructDef
+		for i := 0; i < len(fieldList); i++ {
+			fieldType := fieldList[i].Field.Type
+
+			sfield := &model.StructField{}
+			jsonArr := strings.Split(fieldList[i].Field.Tag.Get("json"), ",")
+			if len(jsonArr) > 0 {
+				sfield.Name = jsonArr[0]
+			}
+
+		writeTypeName:
+			switch fieldType.Kind() {
+			case reflect.Ptr:
+				sfield.Type += "*"
+				fieldType = fieldType.Elem()
+				goto writeTypeName
+			case reflect.Slice:
+				sfield.Type += "[]"
+				fieldType = fieldType.Elem()
+				goto writeTypeName
+			case reflect.Struct:
+				if _, ok := analysisedStruct[fieldType]; !ok {
+					if fieldType == reflect.TypeOf(time.Time{}) {
+						break
 					}
+					analysisedStruct[fieldType] = struct{}{}
+					typeStack = append(typeStack, fieldType)
+				}
+				sfield.Type += fieldType.Name()
+				sfield.Req = !strings.HasPrefix(sfield.Type, "*")
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+				sfield.Type += "int"
+				sfield.Req = !strings.HasPrefix(sfield.Type, "*")
+			case reflect.Float32, reflect.Float64:
+				sfield.Type += "float"
+				sfield.Req = !strings.HasPrefix(sfield.Type, "*")
+			default:
+				sfield.Type += fieldType.Name()
+				sfield.Req = !strings.HasPrefix(sfield.Type, "*")
+			}
+
+			// get desc
+			if pkgDescMap, ok := descMap[t.PkgPath()]; ok {
+				ttName := fieldList[i].PName + "." + fieldList[i].Field.Name
+				if descStr, ok := pkgDescMap[ttName]; ok {
+					sfield.Desc = descStr
 				}
 			}
-			stf.Type += fType.Name()
-			stf.Req = !strings.HasPrefix(stf.Type, "*")
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			stf.Type += "int"
-			stf.Req = !strings.HasPrefix(stf.Type, "*")
-		case reflect.Float32, reflect.Float64:
-			stf.Type += "float"
-			stf.Req = !strings.HasPrefix(stf.Type, "*")
-		default:
-			stf.Type += fType.Name()
-			stf.Req = !strings.HasPrefix(stf.Type, "*")
+
+			structDefind.Fields = append(structDefind.Fields, sfield)
 		}
 
-		if pkgDescMap, ok := descMap[t.PkgPath()]; ok {
-			ttName := fieldList[i].PName + "." + field.Name
-			if descStr, ok := pkgDescMap[ttName]; ok {
-				stf.Desc = descStr
-			}
-		}
-
-		sd.Fields = append(sd.Fields, stf)
+		ret = append(ret, structDefind)
 	}
 
-	structList := make([]*model.StructDef, 0, len(structDefs))
-	for _, subSd := range structDefs {
-		structList = append(structList, subSd)
-	}
-
-	return sd, structList
+	return ret
 }
 
 func NodeToFieldList(node *html.Node) model.StructTable {
@@ -191,10 +183,12 @@ func NodeToFieldList(node *html.Node) model.StructTable {
 			}
 			f.Req = reqStr == "Y"
 
+			desc := ""
 			decTNodes := SearchNodes(tdList[0], html.TextNode, "")
 			for i := 0; i < len(decTNodes); i++ {
-				f.Desc += decTNodes[i].Data
+				desc += decTNodes[i].Data
 			}
+			f.Desc[0] = desc
 
 			list = append(list, f)
 		}

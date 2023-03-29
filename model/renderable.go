@@ -37,12 +37,12 @@ func NewTitleRenderable(title string) *NodeRenderable {
 	return NewNodeRenderable([]*html.Node{node})
 }
 
-func NewParamRenderable(sd *StructDef, relate []*StructDef, colorset *ColorSet) *NodeRenderable {
-	if sd == nil {
+func NewParamRenderable(sd []*StructDef, colorset *ColorSet, prefix string) *NodeRenderable {
+	if sd == nil || len(sd) == 0 {
 		return nil
 	}
 
-	for _, s := range relate {
+	for _, s := range sd {
 		if s == nil {
 			continue
 		}
@@ -50,9 +50,11 @@ func NewParamRenderable(sd *StructDef, relate []*StructDef, colorset *ColorSet) 
 		colorset.Get(s.Name)
 	}
 
-	ret := NewNodeRenderable(sd.GetNodes(colorset))
-	for i := 0; i < len(relate); i++ {
-		ret.Append(relate[i].GetNodes(colorset))
+	// header
+	sd[0].Prefix = prefix
+	ret := NewNodeRenderable(sd[0].GetNodes(colorset))
+	for i := 1; i < len(sd); i++ {
+		ret.Append(sd[i].GetNodes(colorset))
 	}
 	return ret
 }

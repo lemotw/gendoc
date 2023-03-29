@@ -35,7 +35,7 @@ type docService struct {
 	ConflunceSetting *ConflunceSetting
 
 	Registry       map[string][]*APIRegistry
-	descriptionMap map[string]map[string]string
+	descriptionMap map[string]map[string][]string
 }
 
 func (serv *docService) NewGroup(pageId string) *APIGroup {
@@ -97,13 +97,13 @@ func (serv *docService) createPage(parentID string, api *APIRegistry) error {
 	doc.AppendRow(model.NewTitleRenderable(INTRODUTION_HEADER), introdution)
 
 	// color set
-	reqStruct, reqReleate := analysis.ReflectAny(api.Req.Data, serv.descriptionMap, "req")
-	resStruct, resReleate := analysis.ReflectAny(api.Res.Data, serv.descriptionMap, "res")
-	colorset := model.NewColorSet(len(reqReleate) + len(resReleate))
+	reqStruct := analysis.ReflectAny(api.Req.Data, serv.descriptionMap)
+	resStruct := analysis.ReflectAny(api.Res.Data, serv.descriptionMap)
+	colorset := model.NewColorSet(len(resStruct) + len(reqStruct))
 
 	// set req doc
 	reqKey := model.NewTitleRenderable(REQUEST_HEADER)
-	req := model.NewParamRenderable(reqStruct, reqReleate, colorset)
+	req := model.NewParamRenderable(reqStruct, colorset, "req")
 	doc.Append(reqKey, req)
 	if api.Req.JsonRender {
 		doc.Append(reqKey, model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
@@ -112,7 +112,7 @@ func (serv *docService) createPage(parentID string, api *APIRegistry) error {
 
 	// set res doc
 	resKey := model.NewTitleRenderable(RESPONSE_HEADER)
-	res := model.NewParamRenderable(resStruct, resReleate, colorset)
+	res := model.NewParamRenderable(resStruct, colorset, "res")
 	doc.Append(resKey, res)
 	if api.Res.JsonRender {
 		doc.Append(resKey, model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
@@ -158,15 +158,15 @@ func (serv *docService) updatePage(parentID string, existPage, api *APIRegistry)
 	}
 
 	// color set
-	reqStruct, reqReleate := analysis.ReflectAny(api.Req.Data, serv.descriptionMap, "req")
-	resStruct, resReleate := analysis.ReflectAny(api.Res.Data, serv.descriptionMap, "res")
-	colorset := model.NewColorSet(len(reqReleate) + len(resReleate))
+	reqStruct := analysis.ReflectAny(api.Req.Data, serv.descriptionMap)
+	resStruct := analysis.ReflectAny(api.Res.Data, serv.descriptionMap)
+	colorset := model.NewColorSet(len(resStruct) + len(reqStruct))
 
 	// req set
 	if reqKey == nil {
-		doc.Append(model.NewTitleRenderable(REQUEST_HEADER), model.NewParamRenderable(reqStruct, reqReleate, colorset))
+		doc.Append(model.NewTitleRenderable(REQUEST_HEADER), model.NewParamRenderable(reqStruct, colorset, "req"))
 	} else {
-		doc.Contents[reqKey] = []model.Renderable{model.NewParamRenderable(reqStruct, reqReleate, colorset)}
+		doc.Contents[reqKey] = []model.Renderable{model.NewParamRenderable(reqStruct, colorset, "req")}
 		if api.Req.JsonRender {
 			doc.Contents[reqKey] = append(doc.Contents[reqKey], model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
 			doc.Contents[reqKey] = append(doc.Contents[reqKey], &model.JsonContent{Data: api.Req.Data})
@@ -175,9 +175,9 @@ func (serv *docService) updatePage(parentID string, existPage, api *APIRegistry)
 
 	// res set
 	if resKey == nil {
-		doc.Append(model.NewTitleRenderable(RESPONSE_HEADER), model.NewParamRenderable(resStruct, resReleate, colorset))
+		doc.Append(model.NewTitleRenderable(RESPONSE_HEADER), model.NewParamRenderable(reqStruct, colorset, "res"))
 	} else {
-		doc.Contents[resKey] = []model.Renderable{model.NewParamRenderable(resStruct, resReleate, colorset)}
+		doc.Contents[resKey] = []model.Renderable{model.NewParamRenderable(reqStruct, colorset, "res")}
 		if api.Req.JsonRender {
 			doc.Contents[resKey] = append(doc.Contents[resKey], model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
 			doc.Contents[resKey] = append(doc.Contents[resKey], &model.JsonContent{Data: api.Res.Data})
