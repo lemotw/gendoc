@@ -36,7 +36,18 @@ unwrap:
 type WrapStructField struct {
 	// for desc
 	PName string
+	Pkg   string
 	Field reflect.StructField
+}
+
+func (fild *WrapStructField) GetDesc(descMap map[string]map[string][]string) []string {
+	if pkgDescMap, ok := descMap[fild.Pkg]; ok {
+		ttName := fild.PName + "." + fild.Field.Name
+		if descStr, ok := pkgDescMap[ttName]; ok {
+			return descStr
+		}
+	}
+	return []string{}
 }
 
 func getFileds(start reflect.Type) []*WrapStructField {
@@ -47,6 +58,7 @@ func getFileds(start reflect.Type) []*WrapStructField {
 		field := start.Field(i)
 		stack = append(stack, &WrapStructField{
 			PName: start.Name(),
+			Pkg:   start.PkgPath(),
 			Field: field,
 		})
 	}
@@ -72,6 +84,7 @@ func getFileds(start reflect.Type) []*WrapStructField {
 				fieldj := wrapfield.Field.Type.Field(j)
 				stack = append(stack, &WrapStructField{
 					PName: rawFieldType.Name(),
+					Pkg:   rawFieldType.PkgPath(),
 					Field: fieldj,
 				})
 			}
@@ -137,12 +150,7 @@ func ReflectStructDFS(t reflect.Type, descMap map[string]map[string][]string) []
 			}
 
 			// get desc
-			if pkgDescMap, ok := descMap[t.PkgPath()]; ok {
-				ttName := fieldList[i].PName + "." + fieldList[i].Field.Name
-				if descStr, ok := pkgDescMap[ttName]; ok {
-					sfield.Desc = descStr
-				}
-			}
+			sfield.Desc = fieldList[i].GetDesc(descMap)
 
 			structDefind.Fields = append(structDefind.Fields, sfield)
 		}
