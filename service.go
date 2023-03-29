@@ -175,9 +175,9 @@ func (serv *docService) updatePage(parentID string, existPage, api *APIRegistry)
 
 	// res set
 	if resKey == nil {
-		doc.Append(model.NewTitleRenderable(RESPONSE_HEADER), model.NewParamRenderable(reqStruct, colorset, "res"))
+		doc.Append(model.NewTitleRenderable(RESPONSE_HEADER), model.NewParamRenderable(resStruct, colorset, "res"))
 	} else {
-		doc.Contents[resKey] = []model.Renderable{model.NewParamRenderable(reqStruct, colorset, "res")}
+		doc.Contents[resKey] = []model.Renderable{model.NewParamRenderable(resStruct, colorset, "res")}
 		if api.Req.JsonRender {
 			doc.Contents[resKey] = append(doc.Contents[resKey], model.NewNodeRenderable([]*html.Node{{Type: html.ElementNode, Data: "br"}}))
 			doc.Contents[resKey] = append(doc.Contents[resKey], &model.JsonContent{Data: api.Res.Data})
