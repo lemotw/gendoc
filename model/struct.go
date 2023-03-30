@@ -7,10 +7,11 @@ import (
 )
 
 type StructField struct {
-	Name string
-	Type string
-	Req  bool
-	Desc []string
+	Name   string
+	Type   string
+	Req    bool
+	Desc   []string
+	Source string
 }
 
 func (field *StructField) GetNode(colorset *ColorSet) *html.Node {
@@ -52,6 +53,11 @@ func (field *StructField) GetNode(colorset *ColorSet) *html.Node {
 		td4Node.AppendChild(&pNode)
 	}
 	trNode.AppendChild(td4Node)
+
+	// source
+	td5Node := &html.Node{Type: html.ElementNode, Data: "td"}
+	td5Node.AppendChild(&html.Node{Type: html.TextNode, Data: field.Source})
+	trNode.AppendChild(td5Node)
 
 	return trNode
 }
@@ -110,6 +116,10 @@ func (def *StructDef) GetNodes(colorset *ColorSet) []*html.Node {
 	th4Node := &html.Node{Type: html.ElementNode, Data: "th"}
 	th4Node.AppendChild(&html.Node{Type: html.TextNode, Data: "Description"})
 	trNode.AppendChild(th4Node)
+
+	th5Node := &html.Node{Type: html.ElementNode, Data: "th"}
+	th5Node.AppendChild(&html.Node{Type: html.TextNode, Data: "Source"})
+	trNode.AppendChild(th5Node)
 
 	theadNode.AppendChild(trNode)
 	tableNode.AppendChild(theadNode)

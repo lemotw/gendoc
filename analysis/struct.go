@@ -70,7 +70,7 @@ func getFileds(start reflect.Type) []*WrapStructField {
 		wrapfield := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 
-		if wrapfield.Field.Tag.Get("json") != "" {
+		if wrapfield.Field.Tag.Get("gendoc") != "" {
 			ret = append(ret, wrapfield)
 		}
 
@@ -113,9 +113,16 @@ func ReflectStructDFS(t reflect.Type, descMap map[string]map[string][]string) []
 			fieldType := fieldList[i].Field.Type
 
 			sfield := &model.StructField{}
-			jsonArr := strings.Split(fieldList[i].Field.Tag.Get("json"), ",")
-			if len(jsonArr) > 0 {
-				sfield.Name = jsonArr[0]
+			jsonArr := strings.Split(fieldList[i].Field.Tag.Get("gendoc"), ",")
+			for ind := 0; ind < len(jsonArr); ind++ {
+				switch ind {
+				case 0:
+					sfield.Name = jsonArr[ind]
+				case 1:
+					sfield.Source = jsonArr[ind]
+				case 2:
+					sfield.Req = (jsonArr[ind] == "Y" || jsonArr[ind] == "y")
+				}
 			}
 
 		writeTypeName:
